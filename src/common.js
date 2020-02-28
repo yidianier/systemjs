@@ -135,7 +135,7 @@ function resolveAndComposePackages (packages, outPackages, baseUrl, parentMap, p
 }
 
 export function resolveAndComposeImportMap (json, baseUrl, parentMap) {
-  const outMap = { imports: objectAssign({}, parentMap.imports), scopes: objectAssign({}, parentMap.scopes) };
+  const outMap = { imports: objectAssign({}, parentMap.imports), scopes: objectAssign({}, parentMap.scopes), depcache: objectAssign({}, parentMap.depcache) };
 
   if (json.imports)
     resolveAndComposePackages(json.imports, outMap.imports, baseUrl, parentMap, null);
@@ -144,6 +144,12 @@ export function resolveAndComposeImportMap (json, baseUrl, parentMap) {
     for (let s in json.scopes) {
       const resolvedScope = resolveUrl(s, baseUrl);
       resolveAndComposePackages(json.scopes[s], outMap.scopes[resolvedScope] || (outMap.scopes[resolvedScope] = {}), baseUrl, parentMap, resolvedScope);
+    }
+
+  if (json.depcache)
+    for (let d in json.depcache) {
+      const resolvedDepcache = resolveUrl(s, baseUrl);
+      outMap.depcache[resolvedDepcache] = json.depcache[d];
     }
 
   return outMap;

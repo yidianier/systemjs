@@ -13,7 +13,7 @@
 import { baseUrl, resolveAndComposeImportMap, resolveImportMap, resolveIfNotPlainOrUrl, hasDocument } from '../common.js';
 import { systemJSPrototype } from '../system-core.js';
 
-let importMap = { imports: {}, scopes: {} }, importMapPromise;
+let importMap = { imports: {}, scopes: {}, depcache: {} }, importMapPromise;
 
 if (hasDocument) {
   Array.prototype.forEach.call(document.querySelectorAll('script[type="systemjs-importmap"][src]'), function (script) {
@@ -42,6 +42,43 @@ systemJSPrototype.prepareImport = function () {
 systemJSPrototype.resolve = function (id, parentUrl) {
   parentUrl = parentUrl || baseUrl;
   return resolveImportMap(importMap, resolveIfNotPlainOrUrl(id, parentUrl) || id, parentUrl) || throwUnresolved(id, parentUrl);
+};
+
+let supportsPreload = false, supportsPrefetch = false;
+if (hasDocument) {
+  let relList = document.createElement('link').relList;
+  if (relList && relList.supports) {
+    supportsPrefetch = true;
+    try {
+      supportsPreload = relList.supports('preload');
+    }
+    catch (e) {}
+  }
+}
+
+const systemInstantiate = systemJSPrototype.instantiate;
+systemJSPrototype.instantiate = function (url, firstParentUrl) {
+  const depcache = importMap.depcache[url];
+  if (depcache) {
+    // fallback to old fashioned image technique which still works in safari
+    if (!supportsPreload && !supportsPrefetch) {
+      var preloadImage = new Image();
+      preloadImage.src = url;
+      return;
+    }
+    var link = document.createElement('link');
+    if (supportsPreload) {
+      link.rel = 'preload';
+      link.as = 'script';
+    }
+    else {
+      // this works for all except Safari (detected by relList.supports lacking)
+      link.rel = 'prefetch';
+    }
+    link.href = url;
+    document.head.appendChild(link);
+  }
+  return systemInstantiate.call(this, url, firstParentUrl);
 };
 
 function throwUnresolved (id, parentUrl) {
