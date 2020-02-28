@@ -60,23 +60,25 @@ const systemInstantiate = systemJSPrototype.instantiate;
 systemJSPrototype.instantiate = function (url, firstParentUrl) {
   const depcache = importMap.depcache[url];
   if (depcache) {
-    // fallback to old fashioned image technique which still works in safari
-    if (!supportsPreload && !supportsPrefetch) {
-      var preloadImage = new Image();
-      preloadImage.src = url;
-      return;
-    }
-    var link = document.createElement('link');
-    if (supportsPreload) {
-      link.rel = 'preload';
-      link.as = 'script';
-    }
-    else {
-      // this works for all except Safari (detected by relList.supports lacking)
-      link.rel = 'prefetch';
-    }
-    link.href = url;
-    document.head.appendChild(link);
+    depcache.forEach(function (url) {
+      // fallback to old fashioned image technique which still works in safari
+      if (!supportsPreload && !supportsPrefetch) {
+        var preloadImage = new Image();
+        preloadImage.src = url;
+        return;
+      }
+      var link = document.createElement('link');
+      if (supportsPreload) {
+        link.rel = 'preload';
+        link.as = 'script';
+      }
+      else {
+        // this works for all except Safari (detected by relList.supports lacking)
+        link.rel = 'prefetch';
+      }
+      link.href = url;
+      document.head.appendChild(link);
+    });
   }
   return systemInstantiate.call(this, url, firstParentUrl);
 };
