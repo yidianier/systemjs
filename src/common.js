@@ -148,7 +148,7 @@ export function resolveAndComposeImportMap (json, baseUrl, parentMap) {
 
   if (json.depcache)
     for (let d in json.depcache) {
-      const resolvedDepcache = resolveUrl(s, baseUrl);
+      const resolvedDepcache = resolveUrl(d, baseUrl);
       outMap.depcache[resolvedDepcache] = json.depcache[d];
     }
 
