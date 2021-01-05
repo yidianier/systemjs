@@ -26,10 +26,13 @@
 	<link rel="stylesheet" type="text/css" href="../node_modules/mocha/mocha.css"/>
 	<script src="../node_modules/mocha/mocha.js"></script>
 
-	<script type="systemjs-importmap" src="fixtures/browser/importmap.json"></script>
+	<script type="systemjs-importmap" src="https://hostname.invalid/importmap.json"></script>
+	<script type="systemjs-importmap" src="fixtures/browser/importmap-invalid.json"></script>
+	<script type="systemjs-importmap" src="fixtures/browser/importmap.json" integrity="sha384-+t/f9i0vQYwxmcczlIpgCCTQz2mA1sMGYGErJ4fZb/Lcx/yYrFSiedO0XpSIX8oX"></script>
 	<script type="systemjs-module" src="/test/fixtures/browser/systemjs-module-early.js"></script>
 	<script src="../dist/system.js"></script>
 	<script type="systemjs-module" src="/test/fixtures/browser/systemjs-module-script.js"></script>
+	<script src="/test/fixtures/browser/auto-import.js"></script>
 	<script type="systemjs-module" src="import:/test/fixtures/browser/systemjs-module-script2.js"></script>
 
 	<script>
@@ -50,27 +53,38 @@
 			}
 		};
 
-		const extras = ['amd', 'named-exports', 'transform', 'named-register'];
-		let failCnt = 0;
-		function runNextExtra (failures) {
-			failCnt += failures;
-			mocha.suite.suites.shift();
-			const extra = extras.shift();
-			if (extra)
-				System.import('../dist/extras/' + extra + '.js')
-				.then(function () {
-					return System.import('./browser/' + extra + '.js');
-				})
-				.then(function () {
-					mocha.run(runNextExtra);
-				});
-			else
-				fetch(failCnt ? '/error' : '/done');
+		function importNext(name) {
+			return function() {
+				return System.import(name);
+			}
 		}
 
-		System.import('./browser/core.js')
-		.then(function () {
-			mocha.run(runNextExtra);
+		function importSeries() {
+			var promise = Promise.resolve();
+
+			for(var i=0; i<arguments.length; i++) {
+				promise = promise.then(importNext(arguments[i]));
+			}
+
+			return promise;
+		}
+
+		importSeries(
+			'./browser/core.js',
+			'./browser/amd.js',
+			'./browser/named-exports.js',
+			'./browser/transform.js',
+			'./browser/named-register.js',
+			'./browser/dynamic-import-maps.js'
+		)
+		.then(function() {
+			mocha.run(function(failures) {
+				fetch(failures ? '/error' : '/done');
+			})
+		})
+		.catch(function(e) {
+			fetch('/error');
+			throw e;
 		});
 	</script>
 

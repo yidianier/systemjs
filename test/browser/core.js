@@ -57,10 +57,48 @@ suite('SystemJS Standard Tests', function() {
     });
   });
 
+  test('import.meta.resolve package maps', function () {
+    return System.import('fixtures/resolve.js').then(function (m) {
+      return m.resolve('a')
+    })
+    .then(function (resolved) {
+      assert.equal(resolved, rootURL + 'b');
+    });
+  });
+
+  test('import.meta.resolve package maps paths', function () {
+    return System.import('fixtures/resolve.js').then(function (m) {
+      return m.resolve('a/')
+    })
+    .then(function (resolved) {
+      assert.equal(resolved, baseURL + 'fixtures/browser/a/');
+    });
+  });
+
   test('Contextual package maps', function () {
     return System.import('fixtures/scope-test/index.js')
     .then(function (m) {
       assert.equal(m.mapdep, 'mapdep');
+    });
+  });
+
+  test('import.meta.resolve contextual package maps', function () {
+    return System.import('fixtures/resolve.js').then(function (m) {
+      return m.resolve('maptest', baseURL + 'fixtures/browser/scope-test/index.js')
+    })
+    .then(function (resolved) {
+      assert.equal(resolved, baseURL + 'fixtures/browser/contextual-map-dep.js');
+    });
+  });
+
+  test('import.meta.resolve contextual package maps fail', function () {
+    return System.import('fixtures/resolve.js').then(function (m) {
+      return m.resolve('maptest')
+    })
+    .then(function (resolved) {
+      assert.ok(false);
+    }, function (error) {
+      assert.equal(error.message.indexOf('Unable to resolve'), 0);
     });
   });
 
@@ -78,6 +116,15 @@ suite('SystemJS Standard Tests', function() {
     return System.import('fixtures/global.js').then(function (m) {
       assert.ok(m.default);
       assert.equal(m.default.some, 'thing');
+    });
+  });
+
+  test('firstGlobalProp option', function () {
+    Object.getPrototypeOf(System).firstGlobalProp = true;
+    return System.import('fixtures/multiple-globals.js').then(function (m) {
+      delete Object.getPrototypeOf(System).firstGlobalProp;
+      assert.ok(m.default);
+      assert.equal(m.default.foo1, 'foo1');
     });
   });
 
@@ -129,6 +176,19 @@ suite('SystemJS Standard Tests', function() {
     .catch(function (err) {
       assert.ok(err instanceof SyntaxError);
     });
+  });
+
+  test('Errors for bad Content-Type headers', function () {
+    return System.import('fixtures/content-type-none.json')
+    .catch(function (err) {
+      assert.ok(/Unknown Content-Type.*error#4/i.test(err));
+    })
+    .then(function () {
+      return System.import('fixtures/content-type-xml.json')
+    })
+    .catch(function (err) {
+      assert.ok(/Unknown Content-Type.*error#4/i.test(err));
+    })
   });
 
   if (typeof Worker !== 'undefined')
@@ -200,10 +260,32 @@ suite('SystemJS Standard Tests', function() {
     assert.equal(System.get(resolved).hi, 'bye');
   });
 
+  test('should load auto import', function () {
+    const resolved = System.resolve('/test/fixtures/browser/auto-import.js');
+    assert.ok(System.has(resolved));
+    assert.equal(System.get(resolved).auto, 'import');
+  });
+
+  test('import.meta.resolve', function () {
+    return System.import('fixtures/resolve.js').then(function (m) {
+      return m.resolve('./test.js')
+    })
+    .then(function (resolved) {
+      assert.equal(resolved, baseURL + 'fixtures/browser/test.js');
+    });
+  });
+
   test('non-enumerable __esModule property export (issue 2090)', function () {
     return System.import('fixtures/__esModule.js').then(function (m) {
       // Even though __esModule is not enumerable on the exported object, it should be preserved on the systemjs namespace
       assert.ok(m.__esModule);
+    });
+  });
+
+  test('should support depcache', function () {
+    return System.import('/test/fixtures/browser/depcache.js').then(function (m) {
+      assert.ok(m);
+      assert.equal(m.default, '10th module');
     });
   });
 
@@ -219,6 +301,21 @@ suite('SystemJS Standard Tests', function() {
       assert.ok(m);
       assert.ok(isCSSStyleSheet(m.default));
     });
+  });
+
+  // https://github.com/systemjs/systemjs/issues/2286
+  test('should allow deletion of modules that failed to instantiate', function () {
+    return System.import('fixtures/link-error.js').then(
+      function () {
+        throw Error('Link error expected');
+      },
+      function () {
+        assert.ok(System.delete(System.resolve('fixtures/link-error.js')));
+        assert.ok(System.delete(System.resolve('fixtures/link-error-child.js')));
+        assert.ok(System.delete(System.resolve('fixtures/not-found.js')));
+        assert.ok(System.delete(System.resolve('fixtures/link-error-child2.js')));
+      }
+    );
   });
 
   var isIE11 = typeof navigator !== 'undefined' && navigator.userAgent.indexOf('Trident') !== -1;

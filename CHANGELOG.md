@@ -1,3 +1,66 @@
+SystemJS 6.8.3
+* Allow deletion of uninstantiated modules whose top level parent import finished. (https://github.com/systemjs/systemjs/pull/2291)
+
+SystemJS 6.8.2
+* Fix deleting modules after link failure. (https://github.com/systemjs/systemjs/pull/2288)
+* Ensure onload hooks retain catches (https://github.com/systemjs/systemjs/pull/2289)
+* Footprint improvement for browser (https://github.com/systemjs/systemjs/pull/2290)
+
+SystemJS 6.8.1
+* Support System.firstGlobalProp on System instance (https://github.com/systemjs/systemjs/commit/4883c708280f1a7785f065b46852fa806938a2dc)
+* Webpack usage update (https://github.com/systemjs/systemjs/commit/ca781b854fbb253e5f8477ce9b4fbc8c3c43f03c)
+
+SystemJS 6.8.0
+* System.firstGlobalProp for global loading extra (https://github.com/systemjs/systemjs/commit/48351aa83c48fdd22b63000d417dedc2329f2340, @joeldenning)
+* Graceful import map loading errors (https://github.com/systemjs/systemjs/commit/9edebd1969842dcc95a12d4137677c6bc9fe2bae, @naltatis)
+* Sourcemap normalization for fetch loader (https://github.com/systemjs/systemjs/commit/97621d724cc7c892d9dee2cff6b27553326c8169)
+* Dispatch script loading errors for `<script type="systemjs-module">` (https://github.com/systemjs/systemjs/commit/f0fe5a473414b995082688c30a876c602e32d901, @dmail)
+
+SystemJS 6.7.1
+* Fix auto import race condition (https://github.com/systemjs/systemjs/pull/2266)
+
+SystemJS 6.7.0
+* Implement integrity attribute for systemjs-importmap scripts (https://github.com/systemjs/systemjs/commit/78072e594ebebab9124aa9fedd7e17d8303835e1)
+* Deprecate the transform and use default extras (https://github.com/systemjs/systemjs/commit/5f7571a76bef210d096e672c9f011d94871a6827)
+* Fetch hooks brought into core, module types extra refactoring (https://github.com/systemjs/systemjs/commit/281fdf0653663c58145f880131dceaf479add553)
+* Inline named exports extra behaviours into core and deprecate (https://github.com/systemjs/systemjs/commit/3eefa2daa8d203e8d886bae7dc587eed148c5808)
+
+SystemJS 6.6.1
+* IE11 support bug fix (https://github.com/systemjs/systemjs/pull/2247)
+
+SystemJS 6.6.0
+* Fix autoimport dynamic import conflicts (https://github.com/systemjs/systemjs/pull/2245)
+* Set "type": "script" in package.json (https://github.com/systemjs/systemjs/pull/2246)
+
+SystemJS 6.5.1
+* Fix depcache hook (https://github.com/systemjs/systemjs/pull/2242)
+
+SystemJS 6.5.0
+* import.meta.resolve implementation (https://github.com/systemjs/systemjs/pull/2230)
+* Import maps integrity feature (https://github.com/systemjs/systemjs/pull/2229)
+
+SystemJS 6.4.3
+* Define an "s.js" entry in "exports" (https://github.com/systemjs/systemjs/pull/2226)
+* Fixup use of const for older browsers (https://github.com/systemjs/systemjs/issues/2227)
+
+SystemJS 6.4.2
+* Fix and simplify auto import domready resets (https://github.com/systemjs/systemjs/pull/2225)
+
+SystemJS 6.4.1
+* Fix auto import handling of dynamic import races during loading phase (https://github.com/systemjs/systemjs/pull/2223)
+* Fix crossOrigin script attribute loading in Safari (https://github.com/systemjs/systemjs/pull/2222)
+
+SystemJS 6.4.0
+* Dynamic import map extra support (https://github.com/systemjs/systemjs/pull/2217 @stevenvachon)
+* Depcache support in import maps for automated preloading (https://github.com/systemjs/systemjs/pull/2134)
+* Auto Import feature for `<script src="system-register-module.js">` loading for better load performance (https://github.com/systemjs/systemjs/pull/2216, https://github.com/systemjs/systemjs/pull/2210 @tmsns)
+* Fix onload behaviour with flag for error source (https://github.com/systemjs/systemjs/pull/2204 @smartrejames)
+* Fix Object.prototype mutation (https://github.com/systemjs/systemjs/pull/2206 @stevenvachon)
+
+SystemJS 6.3.3
+* Better error message when content-type header is missing (https://github.com/systemjs/systemjs/pull/2197 via @brandones)
+* Make setters optional (#2193 via @guybedford) 
+
 SystemJS 6.3.2
 * Named exports extra now supports non-objects. (https://github.com/systemjs/systemjs/pull/2186 via @Sauloxd)
 

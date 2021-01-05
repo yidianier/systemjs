@@ -7,8 +7,9 @@ export var hasDocument = typeof document !== 'undefined';
 var envGlobal = hasSelf ? self : global;
 export { envGlobal as global };
 
-// Loader-scoped baseUrl supported in Node.js only
+// Loader-scoped baseUrl and import map supported in Node.js only
 export var BASE_URL = hasSymbol ? Symbol() : '_';
+export var IMPORT_MAP = hasSymbol ? Symbol() : '#';
 
 export var baseUrl;
 
@@ -124,12 +125,6 @@ export function resolveUrl (relUrl, parentUrl) {
   return resolveIfNotPlainOrUrl(relUrl, parentUrl) || (relUrl.indexOf(':') !== -1 ? relUrl : resolveIfNotPlainOrUrl('./' + relUrl, parentUrl));
 }
 
-function objectAssign (to, from) {
-  for (var p in from)
-    to[p] = from[p];
-  return to;
-}
-
 function resolveAndComposePackages (packages, outPackages, baseUrl, parentMap, parentUrl) {
   for (var p in packages) {
     var resolvedLhs = resolveIfNotPlainOrUrl(p, baseUrl) || p;
@@ -149,19 +144,21 @@ function resolveAndComposePackages (packages, outPackages, baseUrl, parentMap, p
   }
 }
 
-export function resolveAndComposeImportMap (json, baseUrl, parentMap) {
-  var outMap = { imports: objectAssign({}, parentMap.imports), scopes: objectAssign({}, parentMap.scopes) };
-
+export function resolveAndComposeImportMap (json, baseUrl, outMap) {
   if (json.imports)
-    resolveAndComposePackages(json.imports, outMap.imports, baseUrl, parentMap, null);
+    resolveAndComposePackages(json.imports, outMap.imports, baseUrl, outMap, null);
 
-  if (json.scopes)
-    for (var s in json.scopes) {
-      var resolvedScope = resolveUrl(s, baseUrl);
-      resolveAndComposePackages(json.scopes[s], outMap.scopes[resolvedScope] || (outMap.scopes[resolvedScope] = {}), baseUrl, parentMap, resolvedScope);
-    }
+  var u;
+  for (u in json.scopes || {}) {
+    var resolvedScope = resolveUrl(u, baseUrl);
+    resolveAndComposePackages(json.scopes[u], outMap.scopes[resolvedScope] || (outMap.scopes[resolvedScope] = {}), baseUrl, outMap, resolvedScope);
+  }
 
-  return outMap;
+  for (u in json.depcache || {})
+    outMap.depcache[resolveUrl(u, baseUrl)] = json.depcache[u];
+  
+  for (u in json.integrity || {})
+    outMap.integrity[resolveUrl(u, baseUrl)] = json.integrity[u];
 }
 
 function getMatch (path, matchObj) {

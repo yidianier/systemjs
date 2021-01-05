@@ -4,24 +4,29 @@
  * (Included by default in system.js build)
  */
 (function (global) {
-  var systemJSPrototype = System.constructor.prototype;
+  var systemJSPrototype = global.System.constructor.prototype;
 
   // safari unpredictably lists some new globals first or second in object order
   var firstGlobalProp, secondGlobalProp, lastGlobalProp;
-  function getGlobalProp () {
+  function getGlobalProp (useFirstGlobalProp) {
     var cnt = 0;
-    var lastProp;
+    var foundLastProp, result;
     for (var p in global) {
       // do not check frames cause it could be removed during import
       if (shouldSkipProperty(p))
         continue;
       if (cnt === 0 && p !== firstGlobalProp || cnt === 1 && p !== secondGlobalProp)
         return p;
+      if (foundLastProp) {
+        lastGlobalProp = p;
+        result = useFirstGlobalProp && result || p;
+      }
+      else {
+        foundLastProp = p === lastGlobalProp;
+      }
       cnt++;
-      lastProp = p;
     }
-    if (lastProp !== lastGlobalProp)
-      return lastProp;
+    return result;
   }
 
   function noteGlobalProps () {
@@ -59,7 +64,7 @@
     // when multiple globals, we take the global value to be the last defined new global object property
     // for performance, this will not support multi-version / global collisions as previous SystemJS versions did
     // note in Edge, deleting and re-adding a global does not change its ordering
-    var globalProp = getGlobalProp();
+    var globalProp = getGlobalProp(this.firstGlobalProp);
     if (!globalProp)
       return emptyInstantiation;
 
@@ -74,6 +79,7 @@
     return [[], function (_export) {
       return {
         execute: function () {
+          _export(globalExport);
           _export({ default: globalExport, __useDefault: true });
         }
       };

@@ -41,8 +41,12 @@ systemJSPrototype.import = function (id, parentUrl) {
 
 // Hookable createContext function -> allowing eg custom import meta
 systemJSPrototype.createContext = function (parentId) {
+  var loader = this;
   return {
-    url: parentId
+    url: parentId,
+    resolve: function (id, parentUrl) {
+      return Promise.resolve(loader.resolve(id, parentUrl || parentId));
+    }
   };
 };
 
@@ -52,8 +56,8 @@ if (!process.env.SYSTEM_PRODUCTION)
 function loadToId (load) {
   return load.id;
 }
-function triggerOnload (loader, load, err) {
-  loader.onload(err, load.id, load.d && load.d.map(loadToId));
+function triggerOnload (loader, load, err, isErrSource) {
+  loader.onload(err, load.id, load.d && load.d.map(loadToId), !!isErrSource);
   if (err)
     throw err;
 }
@@ -72,7 +76,7 @@ systemJSPrototype.getRegister = function () {
   return _lastRegister;
 };
 
-function getOrCreateLoad (loader, id, firstParentUrl) {
+export function getOrCreateLoad (loader, id, firstParentUrl) {
   var load = loader[REGISTRY][id];
   if (load)
     return load;
@@ -93,7 +97,7 @@ function getOrCreateLoad (loader, id, firstParentUrl) {
       // note if we have hoisted exports (including reexports)
       load.h = true;
       var changed = false;
-      if (typeof name !== 'object') {
+      if (typeof name === 'string') {
         if (!(name in ns) || ns[name] !== value) {
           ns[name] = value;
           changed = true;
@@ -127,12 +131,12 @@ function getOrCreateLoad (loader, id, firstParentUrl) {
     } : undefined);
     load.e = declared.execute || function () {};
     return [registration[0], declared.setters || []];
+  }, function (err) {
+    load.e = null;
+    load.er = err;
+    if (!process.env.SYSTEM_PRODUCTION) triggerOnload(loader, load, err, true);
+    throw err;
   });
-
-  if (!process.env.SYSTEM_PRODUCTION)
-    instantiatePromise = instantiatePromise.catch(function (err) {
-      triggerOnload(loader, load, err);
-    });
 
   var linkPromise = instantiatePromise
   .then(function (instantiation) {
@@ -153,17 +157,14 @@ function getOrCreateLoad (loader, id, firstParentUrl) {
           }
           return depLoad;
         });
-      })
+      });
     }))
     .then(function (depLoads) {
       load.d = depLoads;
     });
   });
-
-  linkPromise.catch(function (err) {
-    load.e = null;
-    load.er = err;
-  });
+  if (!process.env.SYSTEM_BROWSER)
+    linkPromise.catch(function () {});
 
   // Capital letter = a promise function
   return load = loader[REGISTRY][id] = {
@@ -185,8 +186,6 @@ function getOrCreateLoad (loader, id, firstParentUrl) {
     // dependency load records
     d: undefined,
     // execution function
-    // set to NULL immediately after execution (or on any failure) to indicate execution has happened
-    // in such a case, C should be used, and E, I, L will be emptied
     e: undefined,
 
     // On execution we have populated:
@@ -198,25 +197,37 @@ function getOrCreateLoad (loader, id, firstParentUrl) {
     // On execution, L, I, E cleared
 
     // Promise for top-level completion
-    C: undefined
+    C: undefined,
+
+    // parent instantiator / executor
+    p: undefined
   };
 }
 
-function instantiateAll (loader, load, loaded) {
+function instantiateAll (loader, load, parent, loaded) {
   if (!loaded[load.id]) {
     loaded[load.id] = true;
     // load.L may be undefined for already-instantiated
     return Promise.resolve(load.L)
     .then(function () {
+      if (!load.p || load.p.e === null)
+        load.p = parent;
       return Promise.all(load.d.map(function (dep) {
-        return instantiateAll(loader, dep, loaded);
+        return instantiateAll(loader, dep, parent, loaded);
       }));
     })
+    .catch(function (err) {
+      if (load.er)
+        throw err;
+      load.e = null;
+      if (!process.env.SYSTEM_PRODUCTION) triggerOnload(loader, load, err, false);
+      throw err;
+    });
   }
 }
 
 function topLevelLoad (loader, load) {
-  return load.C = instantiateAll(loader, load, {})
+  return load.C = instantiateAll(loader, load, load, {})
   .then(function () {
     return postOrderExec(loader, load, {});
   })
@@ -246,24 +257,16 @@ function postOrderExec (loader, load, seen) {
   // deps execute first, unless circular
   var depLoadPromises;
   load.d.forEach(function (depLoad) {
-    if (!process.env.SYSTEM_PRODUCTION) {
-      try {
-        var depLoadPromise = postOrderExec(loader, depLoad, seen);
-        if (depLoadPromise) {
-          depLoadPromise.catch(function (err) {
-            triggerOnload(loader, load, err);
-          });
-          (depLoadPromises = depLoadPromises || []).push(depLoadPromise);
-        }
-      }
-      catch (err) {
-        triggerOnload(loader, load, err);
-      }
-    }
-    else {
+    try {
       var depLoadPromise = postOrderExec(loader, depLoad, seen);
-      if (depLoadPromise)
+      if (depLoadPromise) 
         (depLoadPromises = depLoadPromises || []).push(depLoadPromise);
+    }
+    catch (err) {
+      load.e = null;
+      load.er = err;
+      if (!process.env.SYSTEM_PRODUCTION) triggerOnload(loader, load, err, false);
+      throw err;
     }
   });
   if (depLoadPromises)
@@ -275,33 +278,29 @@ function postOrderExec (loader, load, seen) {
     try {
       var execPromise = load.e.call(nullContext);
       if (execPromise) {
-        if (!process.env.SYSTEM_PRODUCTION)
-          execPromise = execPromise.then(function () {
-            load.C = load.n;
-            load.E = null; // indicates completion
-            triggerOnload(loader, load, null);
-          }, function (err) {
-            triggerOnload(loader, load, err);
-          });
-        else
-          execPromise = execPromise.then(function () {
-            load.C = load.n;
-            load.E = null;
-          });
-        return load.E = load.E || execPromise;
+        execPromise = execPromise.then(function () {
+          load.C = load.n;
+          load.E = null; // indicates completion
+          if (!process.env.SYSTEM_PRODUCTION) triggerOnload(loader, load, null, true);
+        }, function (err) {
+          load.er = err;
+          load.E = null;
+          if (!process.env.SYSTEM_PRODUCTION) triggerOnload(loader, load, err, true);
+          throw err;
+        });
+        return load.E = execPromise;
       }
       // (should be a promise, but a minify optimization to leave out Promise.resolve)
       load.C = load.n;
-      if (!process.env.SYSTEM_PRODUCTION) triggerOnload(loader, load, null);
+      load.L = load.I = undefined;
     }
     catch (err) {
       load.er = err;
-      if (!process.env.SYSTEM_PRODUCTION) triggerOnload(loader, load, err);
-      else throw err;
+      throw err;
     }
     finally {
-      load.L = load.I = undefined;
       load.e = null;
+      if (!process.env.SYSTEM_PRODUCTION) triggerOnload(loader, load, load.er, true);
     }
   }
 }

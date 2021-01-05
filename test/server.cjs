@@ -29,7 +29,7 @@ function setBrowserTimeout () {
     clearTimeout(browserTimeout);
   browserTimeout = setTimeout(() => {
     console.log('No browser requests made to server for 10s, closing.');
-    process.exit(0);
+    process.exit(failTimeout ? 1 : 0);
   }, 10000);
 }
 
@@ -84,12 +84,15 @@ http.createServer(async function (req, res) {
   let mime;
   if (filePath.endsWith('javascript.css'))
     mime = 'application/javascript';
+  else if (filePath.endsWith('content-type-xml.json'))
+    mime = 'application/xml';
   else
     mime = mimes[path.extname(filePath)] || 'text/plain';
 
-  res.writeHead(200, {
-    'content-type': mime
-  });
+  const headers = filePath.endsWith('content-type-none.json') ?
+    {} : { 'content-type': mime }
+
+  res.writeHead(200, headers);
   fileStream.pipe(res);
   await once(fileStream, 'end');
   res.end();
